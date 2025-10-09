@@ -279,6 +279,8 @@ def parse_arguments():
     parser.add_argument('edition', help='Edition label (e.g., "1ST EDITION")')
     parser.add_argument('--lang', choices=['kr', 'jp', 'en'], default='kr', 
                        help='Language for font selection (default: kr)')
+    parser.add_argument('--output', '-o', default=None,
+                       help='Output path for the generated book cover (optional, defaults to generated_book_cover_{lang}.png)')
     
     return parser.parse_args()
 
@@ -297,8 +299,11 @@ def main():
     # Get appropriate fonts based on language
     title_font_path, author_font_path, edition_font_path = get_fonts_by_language(args.lang)
     
-    # Generate output filename based on language
-    output_filename = f"generated_book_cover_{args.lang}.png"
+    # Determine output filename
+    if args.output:
+        output_filename = args.output
+    else:
+        output_filename = f"generated_book_cover_{args.lang}.png"
     
     # Create book cover with parsed arguments
     create_book_cover(
