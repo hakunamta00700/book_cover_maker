@@ -4,6 +4,7 @@ import os
 import sys
 from pathlib import Path
 import importlib.resources
+import site
 
 def get_package_resource_path(resource_name):
     """
@@ -34,18 +35,35 @@ def get_package_resource_path(resource_name):
 
 def get_default_background_path():
     """
-    Get the path to the default background image included in the package.
-    
-    Returns:
-        str: Path to the default background image
+    Resolve the path to the default background image (cover_background.png)
+    included with the distribution or available in development.
+    Search order:
+      1) Project/package root (editable/development)
+      2) site-packages root (wheel force-included at root)
+      3) Package directory (if bundled inside the package dir)
+      4) Current working directory
+      5) Fallback to dummy background generation
     """
-    # Try to get the included cover_background.png from the package root
-    package_dir = Path(__file__).parent.parent.parent
-    bg_path = package_dir / "cover_background.png"
-    
-    if bg_path.exists():
-        return str(bg_path)
-    
+    candidates = []
+    pkg_root = Path(__file__).parent.parent.parent
+    candidates.append(pkg_root / "cover_background.png")
+
+    try:
+        for sp in site.getsitepackages():
+            candidates.append(Path(sp) / "cover_background.png")
+    except Exception:
+        pass
+
+    # If file is placed inside the package directory
+    candidates.append(Path(__file__).parent / "cover_background.png")
+
+    # CWD fallback
+    candidates.append(Path.cwd() / "cover_background.png")
+
+    for path in candidates:
+        if path.exists():
+            return str(path)
+
     # Fallback: create a dummy background
     print("Warning: cover_background.png not found in package, creating dummy background...")
     return create_dummy_background(1000, 1500)
@@ -99,9 +117,38 @@ def create_book_cover(background_image_path, title, author, edition_label, outpu
         print("Warning: All font options failed, using default Pillow font.")
         return ImageFont.load_default()
     
-    # Get fonts directory path relative to package
-    package_dir = Path(__file__).parent.parent.parent
-    fonts_dir = package_dir / "fonts"
+    # Resolve fonts directory in multiple environments
+    def get_fonts_dir() -> Path:
+        """Return the most plausible fonts directory.
+        Search order:
+        1) Package root next to this module (editable installs)
+        2) Installed distribution within site-packages root (force-included)
+        3) Current working directory fallback
+        """
+        # 1) package root (project layout or wheel extracted into site-packages)
+        pkg_root = Path(__file__).parent.parent.parent
+        candidate = pkg_root / "fonts"
+        if candidate.exists():
+            return candidate
+
+        # 2) site-packages root (some installers may place data at site root)
+        try:
+            for sp in site.getsitepackages():
+                sp_path = Path(sp) / "fonts"
+                if sp_path.exists():
+                    return sp_path
+        except Exception:
+            pass
+
+        # 3) CWD fallback
+        cwd_fonts = Path.cwd() / "fonts"
+        if cwd_fonts.exists():
+            return cwd_fonts
+
+        # default to pkg_root/fonts even if missing (load_font will fallback)
+        return candidate
+
+    fonts_dir = get_fonts_dir()
     
     # Default fallback font paths
     default_fonts = [
@@ -237,9 +284,25 @@ def get_fonts_by_language(lang):
     Returns:
         tuple: (title_font_path, author_font_path, edition_font_path)
     """
-    # Get fonts directory path relative to package
-    package_dir = Path(__file__).parent.parent.parent
-    fonts_dir = package_dir / "fonts"
+    # Use the same fonts directory resolution as in create_book_cover
+    def get_fonts_dir() -> Path:
+        pkg_root = Path(__file__).parent.parent.parent
+        candidate = pkg_root / "fonts"
+        if candidate.exists():
+            return candidate
+        try:
+            for sp in site.getsitepackages():
+                sp_path = Path(sp) / "fonts"
+                if sp_path.exists():
+                    return sp_path
+        except Exception:
+            pass
+        cwd_fonts = Path.cwd() / "fonts"
+        if cwd_fonts.exists():
+            return cwd_fonts
+        return candidate
+
+    fonts_dir = get_fonts_dir()
     
     if lang == 'kr':
         return (
