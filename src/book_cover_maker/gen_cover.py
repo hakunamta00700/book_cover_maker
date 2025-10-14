@@ -216,10 +216,81 @@ def create_book_cover(
     )
 
     # --- Title (Bottom Left) ---
-    # Split title if it contains multiple lines, and align as in the example
-    title_lines = title.split("\n")
+    # Split/wrap title to fit within the title area width while keeping equal left/right margins
     title_start_x = int(width * 0.07)
     title_start_y = int(height * 0.75)  # Adjust based on the example
+
+    # Define the maximum width for the title area (equal left/right margins)
+    title_area_max_width = width - (title_start_x * 2)
+
+    def wrap_text(draw_ctx, text_value, font_obj, max_w):
+        """Greedy wrap: prefers whitespace boundaries, falls back to per-character for long/ CJK sequences."""
+        if not text_value:
+            return [""]
+
+        lines = []
+        # Respect explicit newlines first
+        raw_lines = text_value.split("\n")
+
+        for raw in raw_lines:
+            words = raw.split()
+            # If there are no spaces (e.g., CJK), fall back to character-based wrap
+            if len(words) == 0:
+                current_line = ""
+                for ch in raw:
+                    test_line = current_line + ch
+                    bbox = draw_ctx.textbbox((0, 0), test_line, font=font_obj)
+                    test_w = bbox[2] - bbox[0]
+                    if test_w <= max_w or current_line == "":
+                        current_line = test_line
+                    else:
+                        lines.append(current_line)
+                        current_line = ch
+                if current_line:
+                    lines.append(current_line)
+                continue
+
+            current_line = ""
+            for word in words:
+                # If a single word is longer than max width, split by characters
+                bbox_word = draw_ctx.textbbox((0, 0), word, font=font_obj)
+                word_w = bbox_word[2] - bbox_word[0]
+                if word_w > max_w:
+                    # flush current_line first
+                    if current_line:
+                        lines.append(current_line)
+                        current_line = ""
+                    piece = ""
+                    for ch in word:
+                        test_piece = piece + ch
+                        bbox_piece = draw_ctx.textbbox((0, 0), test_piece, font=font_obj)
+                        piece_w = bbox_piece[2] - bbox_piece[0]
+                        if piece_w <= max_w or piece == "":
+                            piece = test_piece
+                        else:
+                            lines.append(piece)
+                            piece = ch
+                    if piece:
+                        # start a new line with this piece or append to current if it fits
+                        current_line = piece
+                    continue
+
+                tentative = word if current_line == "" else current_line + " " + word
+                bbox = draw_ctx.textbbox((0, 0), tentative, font=font_obj)
+                tw = bbox[2] - bbox[0]
+                if tw <= max_w:
+                    current_line = tentative
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+
+            if current_line:
+                lines.append(current_line)
+
+        return lines
+
+    title_lines = wrap_text(draw, title, title_font, title_area_max_width)
 
     for i, line in enumerate(title_lines):
         draw.text(
@@ -238,7 +309,9 @@ def create_book_cover(
         + (len(title_lines) * int(title_font.size * 1.2))
         + int(height * 0.01)
     )
-    line_length = int(width * 0.5)  # Approximately half the width
+    # Draw line to match the title area's left margin and a reasonable length within the area
+    available_line_length = min(int(width * 0.5), width - title_start_x * 2)
+    line_length = available_line_length
     draw.line(
         [(title_start_x, line_y), (title_start_x + line_length, line_y)],
         fill=light_gray_color,
