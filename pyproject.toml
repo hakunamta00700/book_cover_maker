@@ -9,7 +9,7 @@ dependencies = [
     "pillow>=11.3.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 
 [project.scripts]
 book-cover-maker = "book_cover_maker.gen_cover:main"
