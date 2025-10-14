@@ -7,7 +7,6 @@ authors = [
 ]
 dependencies = [
     "pillow>=11.3.0",
-    "rye-easy>=0.1.29",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -21,15 +20,7 @@ requires = [
 ]
 build-backend = "hatchling.build"
 
-[tool.rye]
-managed = true
-dev-dependencies = [
-    "autoflake>=2.3.1",
-    "autopep8>=2.3.2",
-    "black>=25.9.0",
-    "ruff>=0.14.0",
-    "isort>=7.0.0",
-]
+## Development tools are not pinned by rye anymore; manage with uv extra/group if desired
 
 [tool.hatch.metadata]
 allow-direct-references = true
